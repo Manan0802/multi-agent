@@ -1,0 +1,1579 @@
+{
+  "name": "Spec Sequencing Agent Final",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        11456,
+        2000
+      ],
+      "id": "c8361312-14c0-4a91-908a-57ff35833af7",
+      "name": "Manual Trigger"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1r-ImZUGZ5XZiHHXXyQa7aR7tejsJSKMgPBvNvVEuOTc",
+          "mode": "list",
+          "cachedResultName": "MCAT List",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1r-ImZUGZ5XZiHHXXyQa7aR7tejsJSKMgPBvNvVEuOTc/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 542637192,
+          "mode": "list",
+          "cachedResultName": "Specs Data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1r-ImZUGZ5XZiHHXXyQa7aR7tejsJSKMgPBvNvVEuOTc/edit#gid=542637192"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Sequence Status"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        11712,
+        2000
+      ],
+      "id": "f0a69523-7092-44ae-88fc-7d7e9e8c4268",
+      "name": "Get Pending MCATs",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "w2cXsr3Q4muTWk3H",
+          "name": "Google Sheets account 257"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        12272,
+        2000
+      ],
+      "id": "04029ac6-f64d-4f82-8b9e-6fccafccde6d",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "url": "=https://get-buyer-isq-details-w2yrp7i6za-el.a.run.app/",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "mcat_id",
+              "value": "={{ $json.mcat_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        12688,
+        1728
+      ],
+      "id": "23201bad-c895-4038-ac8c-96958f61e418",
+      "name": "Buyer Call API",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst stepFiles = data?.steps?.step_11_normalizer_output?.root_files ?? [];\nconst normFiles = data?.normalization?.final_stats ?? [];\nconst updated = Array.isArray(stepFiles) ? stepFiles.find(f => f?.filename === 'updated_spec_value_counts_cumulative.csv') : null;\nconst final_ = Array.isArray(normFiles) ? normFiles.find(f => f?.filename === 'final_spec_value_counts_cumulative.csv') : null;\nconst picked = updated || final_;\nif (picked?.url) return [{ json: { target_url: picked.url, filename: picked.filename, source: updated ? 'step_11' : 'normalization' } }];\nreturn [{ json: { target_url: null } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        12992,
+        1728
+      ],
+      "id": "0c3a7052-8a41-432a-954c-8d15990b88f2",
+      "name": "Extract Buyer CSV URL"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "c2",
+              "leftValue": "={{ $json.target_url }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        13248,
+        1728
+      ],
+      "id": "b0d9d456-e5af-469c-9f8c-abc4d82ca5e3",
+      "name": "Has Buyer CSV?"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.target_url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        13488,
+        1616
+      ],
+      "id": "ce65755e-ed96-45c9-a2b6-7f83abde86d8",
+      "name": "Fetch Buyer CSV",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        13744,
+        1616
+      ],
+      "id": "72b37992-a171-4cb0-9545-e86921d0396b",
+      "name": "Extract CSV"
+    },
+    {
+      "parameters": {
+        "jsCode": "const allItems = $input.all();\nif (!allItems || allItems.length === 0) return [{ json: { buyer_specs: [] } }];\nconst grouped = {};\nfor (const item of allItems) {\n  const row = item.json;\n  const spec = row.normalised_spec_name;\n  if (!spec) continue;\n  if (!grouped[spec]) grouped[spec] = { spec_name: spec, total_product_count: 0, option_map: {} };\n  const count = Number(row.prod_count || 0);\n  grouped[spec].total_product_count += count;\n  let value = row.normalised_spec_value || '';\n  if (row.normalised_spec_value_unit) value = `${value} ${row.normalised_spec_value_unit}`;\n  value = value.trim();\n  if (!value) continue;\n  grouped[spec].option_map[value] = (grouped[spec].option_map[value] || 0) + count;\n}\nconst buyer_specs = Object.values(grouped)\n  .filter(s => s.total_product_count > 0)\n  .sort((a, b) => b.total_product_count - a.total_product_count)\n  .slice(0, 20)\n  .map(spec => {\n    const sortedOptions = Object.entries(spec.option_map).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([v]) => v);\n    return { spec_name: spec.spec_name, total_product_count: spec.total_product_count, example_values: sortedOptions };\n  });\nreturn [{ json: { buyer_specs } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        14000,
+        1616
+      ],
+      "id": "a3462d25-56c7-4823-a445-893a7d0242c1",
+      "name": "Process Buyer CSV"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1JF7Hh7DDCx9XieL4U4EoJLPQtdDxctl7wZYbfvAwb5I",
+          "mode": "list",
+          "cachedResultName": "MCAT Fill Rate Data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1JF7Hh7DDCx9XieL4U4EoJLPQtdDxctl7wZYbfvAwb5I/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1885240206,
+          "mode": "list",
+          "cachedResultName": "MCAT data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1JF7Hh7DDCx9XieL4U4EoJLPQtdDxctl7wZYbfvAwb5I/edit#gid=1885240206"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "mcat_id",
+              "lookupValue": "={{ $json.mcat_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        13200,
+        1968
+      ],
+      "id": "d843ffeb-0d3f-47ef-8766-824142d6a22b",
+      "name": "Get Fill Rate Data",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "w2cXsr3Q4muTWk3H",
+          "name": "Google Sheets account 257"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1K5TxyAt-_6F5E74JWFY1h52G0jSj0wcjG8dfqEGhMAQ",
+          "mode": "list",
+          "cachedResultName": "Option Search Data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1K5TxyAt-_6F5E74JWFY1h52G0jSj0wcjG8dfqEGhMAQ/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1K5TxyAt-_6F5E74JWFY1h52G0jSj0wcjG8dfqEGhMAQ/edit#gid=0"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "mcat_id",
+              "lookupValue": "={{ $json.mcat_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        13216,
+        2208
+      ],
+      "id": "2c420230-36f7-479d-9792-d55c145885c7",
+      "name": "Get Buyer Search Data",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "w2cXsr3Q4muTWk3H",
+          "name": "Google Sheets account 257"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================\n// BUILD MAPPER INPUT\n// All 5 sources come through Merge (append mode).\n// Identify each source by structure and extract spec name lists.\n// ============================================================\n\nconst allItems = $input.all().map(i => i.json);\n\nlet buyerSpecs = [];\nlet fillRateRows = [];\nlet searchRows = [];\nlet missingSpecsData = null;\n\n// ------------------------------------------------------------\n// Identify source type\n// ------------------------------------------------------------\nfor (const item of allItems) {\n\n  // Buyer specs\n  if (Array.isArray(item.buyer_specs)) {\n    buyerSpecs = item.buyer_specs;\n    continue;\n  }\n\n  // Missing specs (seller specs)\n  if (item.finalized_specs && typeof item.finalized_specs === 'object' && !Array.isArray(item.finalized_specs)) {\n    missingSpecsData = item;\n    continue;\n  }\n\n  // Fill rate rows\n  if (item['spec_fill_rate'] !== undefined || item['Spec Fill Rate'] !== undefined) {\n    fillRateRows.push(item);\n    continue;\n  }\n\n  // Search rows\n  if (\n    item['Impression'] !== undefined ||\n    item['impression'] !== undefined ||\n    item['Spec Option'] !== undefined ||\n    item['Total Impressions'] !== undefined\n  ) {\n    searchRows.push(item);\n    continue;\n  }\n\n  // Fallback detection\n  if (item.mcat_id !== undefined && item.spec_name !== undefined) {\n    if (item.product_count !== undefined) fillRateRows.push(item);\n    else searchRows.push(item);\n  }\n}\n\n// ------------------------------------------------------------\n// Extract seller spec names\n// ------------------------------------------------------------\nlet missingSpecs = missingSpecsData?.finalized_specs || {};\n\nconst sellerSpecNames = [];\n\nfor (const tier of [\n  'finalized_primary_specs',\n  'finalized_secondary_specs',\n  'finalized_tertiary_specs'\n]) {\n  const tierSpecs = missingSpecs?.[tier]?.specs || [];\n  for (const s of tierSpecs) {\n    if (s?.spec_name) sellerSpecNames.push(String(s.spec_name).trim());\n  }\n}\n\n// ------------------------------------------------------------\n// Category info\n// ------------------------------------------------------------\nconst categoryName =\n  missingSpecsData?.mcat_name ||\n  missingSpecsData?.category_name ||\n  'Unknown';\n\nconst mcatId = missingSpecsData?.mcat_id || null;\n\n\n// ------------------------------------------------------------\n// Buyer call spec names\n// ------------------------------------------------------------\nconst buyerCallSpecNames = buyerSpecs\n  .map(s => String(s?.spec_name ?? '').trim())\n  .filter(n => n !== '');\n\n\n// ------------------------------------------------------------\n// Fill rate spec names\n// ------------------------------------------------------------\nconst fillRateSpecNames = fillRateRows\n  .map(r => String(r['Spec Name'] ?? r['spec_name'] ?? '').trim())\n  .filter(n => n !== '' && isNaN(Number(n)));\n\n\n// ------------------------------------------------------------\n// Search spec names (deduplicated)\n// ------------------------------------------------------------\nconst searchSpecNames = [\n  ...new Set(\n    searchRows\n      .map(r => String(r['Spec Name'] ?? r['spec_name'] ?? '').trim())\n      .filter(n => n !== '' && isNaN(Number(n)))\n  )\n];\n\n\n// ------------------------------------------------------------\n// Output\n// ------------------------------------------------------------\nreturn [\n  {\n    json: {\n      category_name: categoryName,\n      mcat_id: mcatId,\n\n      seller_spec_names: sellerSpecNames,\n      buyer_call_spec_names: buyerCallSpecNames,\n      fill_rate_spec_names: fillRateSpecNames,\n      search_spec_names: searchSpecNames,\n\n      // raw data for join node\n      _raw_seller_specs: missingSpecs,\n      _raw_buyer_specs: buyerSpecs,\n      _raw_fill_rate_rows: fillRateRows,\n      _raw_search_rows: searchRows\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        14320,
+        1968
+      ],
+      "id": "e816c478-b7f5-4ea2-b705-f5c770a30677",
+      "name": "Build Mapper Input"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a spec-name mapping agent for an Indian B2B marketplace.\n\nCategory: {{ $json.category_name }}\n\n## Task\nMap spec names from multiple sources to the CANONICAL spec list.\n\nThe canonical spec list is the master list of specs for this category.  \nYour task is to identify which spec names from the other sources correspond to each canonical spec.\n\n### SOURCE 1 — Seller Spec Names (MASTER LIST)\n{{ JSON.stringify($json._raw_seller_specs, null, 2) }}\n\n### SOURCE 2 — Buyer Call Spec Names\n{{ JSON.stringify($json.buyer_call_spec_names, null, 2) }}\n\n### SOURCE 3 — Fill Rate Spec Names\n{{ JSON.stringify($json.fill_rate_spec_names, null, 2) }}\n\n### SOURCE 4 — Buyer Search Spec Names\n{{ JSON.stringify($json.search_spec_names, null, 2) }}\n\n## Rules\n\n1. For EACH canonical spec, find matching names from the other 3 sources.\n2. Handle:\n   - synonyms\n   - abbreviations\n   - word order changes\n   - units (mm, inch, micron, etc.)\n   - singular/plural variations\n3. A source spec name can map to **at most ONE canonical spec**.\n4. If no match exists for a source, return an empty array.\n5. Output EXACTLY the canonical spec names provided in SOURCE 1.\n6. Do NOT invent new spec names.\n7. Do NOT remove any canonical spec names.\n8. Do NOT include any numbers or scoring in the output.\n9. Match based only on semantic meaning of the spec names.\n\n## Output Format\nSTRICT JSON ONLY — no markdown, no explanations.\n\n{\n  \"category_name\": \"<same as input>\",\n  \"mappings\": [\n    {\n      \"seller_spec_name\": \"<exact name from SOURCE 1>\",\n      \"matched_call_names\": [\"<buyer call name>\", \"...\"],\n      \"matched_fill_rate_names\": [\"<fill rate name>\", \"...\"],\n      \"matched_search_names\": [\"<search name>\", \"...\"],\n      \"match_confidence\": \"high|medium|low\"\n    }\n  ]\n}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        14592,
+        1968
+      ],
+      "id": "9e8f357c-0065-4a70-a3ad-1e20198f3365",
+      "name": "Mapper Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "google/gemini-2.5-flash",
+          "mode": "list",
+          "cachedResultName": "google/gemini-2.5-flash"
+        },
+        "builtInTools": {},
+        "options": {
+          "timeout": 180000
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        14592,
+        2224
+      ],
+      "id": "ec43a24d-3f70-47da-8903-387f7a81e008",
+      "name": "Mapper LLM",
+      "credentials": {
+        "openAiApi": {
+          "id": "UZ5BfRnTppxhBHXI",
+          "name": "OpenAi account 400"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse mapper output — extract name mappings only\n\nconst first = $input.first().json;\nconst llmOutput = first.output ?? first.text;\n\nif (!llmOutput || typeof llmOutput !== 'string') {\n  throw new Error('No string output from Mapper Agent.');\n}\n\n// Remove markdown if model accidentally adds it\nlet clean = llmOutput\n  .replace(/```json\\s*/gi, '')\n  .replace(/```\\s*/g, '')\n  .trim();\n\nlet parsed;\n\ntry {\n  parsed = JSON.parse(clean);\n} catch (e) {\n\n  // attempt simple repair\n  let repaired = clean\n    .replace(/,\\s*([}\\]])/g, '$1')\n    .replace(/}\\s*{/g, '},{')\n    .replace(/,\\s*,/g, ',')\n    .replace(/[\\u0000-\\u001F]+/g, '');\n\n  try {\n    parsed = JSON.parse(repaired);\n  } catch (err) {\n    throw new Error('Invalid JSON from Mapper.\\n' + clean.slice(0, 500));\n  }\n}\n\n// Normalize mappings\nconst mappings = (parsed.mappings || []).map(m => ({\n  seller_spec_name: m.seller_spec_name,\n  matched_call_names: m.matched_call_names || [],\n  matched_fill_rate_names: m.matched_fill_rate_names || [],\n  matched_search_names: m.matched_search_names || [],\n  match_confidence: m.match_confidence || 'low'\n}));\n\nreturn [{\n  json: {\n    category_name: parsed.category_name ?? null,\n    mappings\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        14928,
+        1968
+      ],
+      "id": "538c4c1a-e74e-42f7-ba3b-c471f14ac140",
+      "name": "Parse Mapper Output",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================\n// JOIN NUMBERS — Use mapper name mapping to pull actual numbers\n// from raw source data. LLM never touches numbers.\n// ============================================================\n\n// ---------- Helper: normalize spec names ----------\nfunction norm(s) {\n  return (s || '')\n    .toString()\n    .toLowerCase()\n    .replace(/\\s+/g, ' ')\n    .replace(/\\(.*?\\)/g, '') // remove units like (mm)\n    .trim();\n}\n\nconst mapperOutput = $('Parse Mapper Output').first().json || {};\nconst inputData = $('Build Mapper Input').first().json || {};\n\nconst {\n  _raw_seller_specs = {},\n  _raw_buyer_specs = [],\n  _raw_fill_rate_rows = [],\n  _raw_search_rows = []\n} = inputData;\n\nconst mcatId = inputData.mcat_id;\nconst categoryName = inputData.category_name;\n\n\n// ============================================================\n// 1. Buyer Call lookup (ONLY product count now)\n// ============================================================\n\nconst callLookup = {};\n\nfor (const bs of _raw_buyer_specs) {\n  const key = norm(bs.spec_name);\n\n  callLookup[key] = {\n    total_product_count: Number(bs.total_product_count || 0)\n  };\n}\n\n\n// ============================================================\n// 2. Fill rate lookup\n// ============================================================\n\nconst fillLookup = {};\n\nfor (const row of _raw_fill_rate_rows) {\n  const name = norm(row['Spec Name'] || row['spec_name']);\n  if (!name) continue;\n\n  fillLookup[name] = {\n    fill_rate: Number(row['Spec Fill Rate'] || row['spec_fill_rate'] || 0),\n    product_count: Number(row['product_count'] || 0)\n  };\n}\n\n\n// ============================================================\n// 3. Search data lookup\n// ============================================================\n\nconst searchLookup = {};\n\nfor (const row of _raw_search_rows) {\n  const name = norm(row['Spec Name'] || row['spec_name']);\n  if (!name) continue;\n\n  const imp = Number(row['Impression'] || row['impression'] || 0);\n  searchLookup[name] = (searchLookup[name] || 0) + imp;\n}\n\n\n// ============================================================\n// 4. Seller spec metadata (WITH OPTIONS)\n// ============================================================\n\nconst sellerMeta = {};\n\nlet sellerSpecs = _raw_seller_specs;\n\n// unwrap safety\nif (Array.isArray(sellerSpecs)) {\n  const first = sellerSpecs[0] || {};\n  sellerSpecs = first.finalized_specs || first;\n}\nif (sellerSpecs.finalized_specs && typeof sellerSpecs.finalized_specs === 'object') {\n  sellerSpecs = sellerSpecs.finalized_specs;\n}\n\nconst tierMap = {\n  finalized_primary_specs: 'Primary',\n  finalized_secondary_specs: 'Secondary',\n  finalized_tertiary_specs: 'Tertiary'\n};\n\nfor (const [tierKey, tierLabel] of Object.entries(tierMap)) {\n\n  const block = sellerSpecs[tierKey];\n  if (!block || !block.specs) continue;\n\n  for (const spec of block.specs) {\n\n    const key = norm(spec.spec_name);\n\n    sellerMeta[key] = {\n      current_tier: tierLabel,\n      option_count: spec.options ? spec.options.length : 0,\n      input_type: spec.input_type || 'radio_button',\n      options: Array.isArray(spec.options) ? spec.options : []\n    };\n  }\n}\n\n\n// ============================================================\n// 5. Join using mapper mappings\n// ============================================================\n\nconst unified = [];\n\nfor (const m of (mapperOutput.mappings || [])) {\n\n  const name = m.seller_spec_name;\n  const key = norm(name);\n\n  const meta = sellerMeta[key] || {\n    current_tier: 'Unknown',\n    option_count: 0,\n    input_type: 'radio_button',\n    options: []\n  };\n\n\n  // -----------------------------\n  // Buyer Call product count\n  // -----------------------------\n  let prodCount = 0;\n\n  for (const cn of (m.matched_call_names || [])) {\n    const f = callLookup[norm(cn)];\n    if (f) {\n      prodCount += f.total_product_count;\n    }\n  }\n\n\n  // -----------------------------\n  // Fill rate\n  // -----------------------------\n  let fillRate = 0;\n\n  for (const fn of (m.matched_fill_rate_names || [])) {\n    const f = fillLookup[norm(fn)];\n    if (f) fillRate = Math.max(fillRate, f.fill_rate);\n  }\n\n\n  // -----------------------------\n  // Search impressions\n  // -----------------------------\n  let impressions = 0;\n\n  for (const sn of (m.matched_search_names || [])) {\n    const f = searchLookup[norm(sn)];\n    if (f) impressions += f;\n  }\n\n\n  // ============================================================\n  // 6. Unified spec record (FINAL)\n  // ============================================================\n\n  unified.push({\n\n    spec_name: name,\n    current_tier: meta.current_tier,\n\n    option_count: meta.option_count,\n    input_type: meta.input_type,\n\n    product_count: prodCount,\n    fill_rate: fillRate,\n    impression: impressions,\n\n    // ✅ ONLY seller-side values now\n    seller_options: meta.options,\n\n    match_confidence: m.match_confidence || 'unknown'\n  });\n\n}\n\n\n// ============================================================\n// OUTPUT\n// ============================================================\n\nreturn [{\n  json: {\n    category_name: categoryName,\n    mcat_id: mcatId,\n    unified_specs: unified\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        15200,
+        1968
+      ],
+      "id": "ebbe399a-cb62-4cec-9309-65f22a02722c",
+      "name": "Join Numbers (Code)"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a Spec Sequencing Agent in a large Indian B2B marketplace.\n\nYour job is to determine the importance order of product listing specifications for a given category, and assign each spec to a tier. \n\n-----------------------------------------------------\nCATEGORY\n-----------------------------------------------------\nMCAT ID: {{ $json.mcat_id }}\nCategory Name: {{ $json.category_name }}\n\n-----------------------------------------------------\nSPEC DATA (one row per spec, all signals pre-joined)\n-----------------------------------------------------\n{{ JSON.stringify($json.unified_specs, null, 2) }}\n\n-----------------------------------------------------\nWHAT EACH SIGNAL MEANS\n-----------------------------------------------------\n\nYou have 3 signals per spec. NONE of them is sufficient alone.\nA spec is truly important only when MULTIPLE signals agree.\n\nFILL RATE (Seller Signal)\n  Percentage of seller product listings where this spec is filled in.\n  Measures: How essential sellers consider this spec for their listings.\n\n  Strengths:\n  - Independent from buyer behavior — a direct seller-side signal of\n    listing completeness.\n  - Very high fill rate (>80%) means sellers universally treat this spec\n    as essential to describe their product. This is not just a habit —\n    it reflects what sellers know buyers need to evaluate a listing.\n  - Captures specs that are critical for listing quality even when buyer\n    search or call data is noisy or sparse.\n\n  Weaknesses / Pitfalls:\n  - Sellers may fill out specs out of habit or because the field is mandatory.\n  - High fill rate alone doesn't guarantee buyers actively filter on it.\n\n\nBottom line: High fill rate (>80%) combined with ANY buyer signal justifies Primary.\n  High fill rate alone justifies Secondary — not Tertiary.\n\n\nIMPRESSION (Buyer Search Signal)\n  Total search impressions across all options of this spec.\n  Measures: How often buyers use this spec to FILTER products during search.\n\n  Strengths:\n  - High volume, directly tracks buyer discovery behavior.\n\n  Weaknesses / Pitfalls:\n  - A spec can have high impressions because it's a default filter on the\n    platform, not because buyers actively care.\n  - Implied specs (e.g., \"Material\" in \"HDPE Tarpaulin\") get inflated\n    impressions from category name, not real choice.\n  - A spec with ONE dominant option gives high total\n    but low differentiation.\n\n  Bottom line: High impression is a HYPOTHESIS that the spec matters.\n  It needs CONFIRMATION from Product Count or Fill Rate.\n\nPRODUCT COUNT (Buyer Call Signal)\n  Number of products where this spec was discussed during actual buyer-seller calls.\n  Measures: What buyers ACTUALLY talk about when making purchase decisions.\n\n  Strengths:\n  - Closest to ground truth — reflects real buyer decision-making.\n  - Captures specs that are important in practice.\n  - Top-discussed specs in calls are strong indicators of crucial specs.\n\n  Weaknesses / Pitfalls:\n  - Can be inflated by implied specs (buyers repeat category name words).\n  - Low count doesn't always mean unimportant — some specs are assumed/obvious.\n\n  Bottom line: High Prod Count is strong evidence of buyer importance,\n  especially when confirmed by Impression or Fill Rate. Fill Rate is a CO-EQUAL signal for listing completeness.\n \nEXAMPLE VALUES\n  Actual option values observed in buyer call data.\n  Use to check: Does this spec have real variety (multiple meaningful options)?\n  Or is it single-value / noise?\n\nMATCH CONFIDENCE\n  How confidently the name-mapping agent matched this spec across sources.\n  \"low\" = signal numbers may be unreliable for this spec.\n\n-----------------------------------------------------\nTIER DEFINITIONS\n-----------------------------------------------------\nPRIMARY (exactly 2-3 specs)\n  The most fundamental identifiers of the product.\n  A buyer CANNOT meaningfully describe or search for this product without these.\n  A seller CANNOT create a complete, identifiable listing without these.\n\n  Buyer test: What would a buyer say FIRST when asking for this product?\n  Example: For \"Designer Lehenga Choli\" → \"I need a Bridal Georgette Lehenga\"\n  → Type and Fabric are Primary.\n\n  Seller test: What specs would a seller fill first to make this listing\n  identifiable? What specs, if left blank, would make the listing feel\n  incomplete or uncategorisable?\n\nSECONDARY (exactly 3-4 specs)\n  Specs that determine whether a specific variant works for the buyer,\n  and that sellers need to distinguish one SKU from another.\n\n  Buyer test: After specifying Primary specs, what does the buyer ask next?\n  Example: \"Semi-stitched, A-Line, 5 meter flair\"\n  → Stitching Type, Style, Flair are Secondary.\n\n  Seller test: What specs help a seller accurately describe the specific\n  variant they are listing? What specs separate one SKU from another\n  within this category?\n\nTERTIARY\n  Helpful for final differentiation. Nice to know, not critical for\n  identification or listing completeness.\n\n  Test: Would a buyer still find the right product without specifying this?\n  Would a seller's listing still be complete and accurate without it?\n  If yes to both → Tertiary.\n\n-----------------------------------------------------\nSIGNAL CONVERGENCE FRAMEWORK (use this instead of a fixed priority)\n-----------------------------------------------------\n\nDO NOT rank specs by a single signal. Instead, evaluate CONVERGENCE:\n\nSTRONG SIGNAL (→ Primary/Secondary candidate):\n  Spec is high in AT LEAST 2 of the 3 signals.\n  Examples:\n  - High ProdCount + High FillRate → very strong (buyers discuss, sellers fill)\n  - High Impression + High FillRate → strong (search + seller listing standard)\n\nMODERATE SIGNAL (→ Secondary/Tertiary candidate):\n  Spec is high in exactly 1 signal.\n  - High Impression only → maybe a default filter, not real buyer interest.\n    Check example_values for variety.\n  - High ProdCount only → buyers discuss it but it's not filterable.\n    Could be Secondary if example_values show variety.\n  - High FillRate only (>80%) → sellers treat it as a listing standard.\n    Rank Secondary. Check example_values — if variety is low or spec is\n    implied by category name, apply Rule 1 or Rule 2 and drop to Tertiary.\n\nWEAK SIGNAL (→ Tertiary or drop):\n  Spec is low across all 3 signals.\n  Only promote if domain reasoning strongly justifies it.\n\nCONFLICTING SIGNALS — resolution rules:\n  - Impression high BUT ProdCount near zero:\n    → Likely a platform default filter or implied spec. DO NOT auto-promote\n      to Primary.\n    → Check if the spec is IMPLIED by category name. If yes, demote.\n    → If not implied, rank as Secondary at best.\n\n  - ProdCount high BUT Impression zero:\n    → Buyers care but can't filter on it. Still important.\n    → Rank as Secondary. Could be Primary if ProdCount is significantly\n      higher than all other specs.\n\n  - FillRate high BUT both Impression and ProdCount low:\n    → Sellers treat this as a listing standard. Rank as Secondary.\n    → Only drop to Tertiary if example_values show single-value or no real\n      variety, or if the spec is implied by the category name (apply Rule 1).\n\n  - All three high:\n    → Strongest Primary candidate. No conflict.\n\nTIEBREAKER:\n  When two specs have near-identical signal strength and their tier\n  placement is genuinely ambiguous, use your knowledge of this product\n  category and Indian B2B trade norms to break the tie.\n  Flag it in change_reason as \"TIEBREAKER: [reasoning]\".\n  Do not invoke domain knowledge to override clear signal differences.\n\n-----------------------------------------------------\nSANITY RULES (apply BEFORE finalizing tiers)\n-----------------------------------------------------\nYou MUST check every spec against these rules and tag accordingly.\n\nRULE 1: IMPLIED\n  Trigger: The category name already fixes or strongly implies this spec's value.\n\n  How to detect:\n  - The category name contains the spec's primary value\n    (e.g., \"Mild Steel Bolt\" → Material = Mild Steel)\n  - The spec has only 1 meaningful option matching the category name\n  - Example_values are all the same / all match the category-implied value\n  - Impression and ProdCount are high ONLY because the implied value\n    appears in every product title and every buyer query\n\n  Action: MUST NOT be Primary or Secondary. Demote to Tertiary.\n  Tag: [\"IMPLIED\"]\n\n  Why: Zero differentiation. Buyers aren't choosing — they're just\n  repeating the category name. High signals are an artifact, not real\n  preference.\n\nRULE 2: DATA_ARTIFACT\n  Trigger: Signals look inflated or don't reflect genuine buyer choice.\n\n  Specific cases:\n  a) Brand with high ProdCount but example_values are generic\n     (\"Brand A\", \"Local\", \"Unbranded\", \"As per requirement\")\n  b) A spec where one option has >90% of all impressions\n     (high total, but no real variety)\n  c) match_confidence is \"low\" and numbers seem disproportionately high\n  d) Spec has high impression but ZERO ProdCount — likely a default\n     platform filter that buyers don't actually use actively\n\n  Action: Tag. Do NOT auto-promote to Primary.\n  Tag: [\"DATA_ARTIFACT\"]\n\nRULE 3: WEAK_EVIDENCE\n  Trigger: Very low signals across ALL sources.\n\n  Thresholds:\n  - Impression = 0 AND ProdCount < 5\n  - OR: FillRate < 15% AND ProdCount < 3\n  - OR: example_values is empty or has only 1 value\n\n  Action: Rank in bottom half. Not in top 6 unless strong domain justification.\n  Tag: [\"WEAK_EVIDENCE\"]\n\n\nRULE 4: SINGLE_SELECT_PREFERENCE\n  Prefer radio_button (single-select) for Primary tier.\n  multi_select CAN be Primary if the category demands it\n  (e.g., \"Work\" for ethnic wear where multiple work types is standard).\n\n  Action: If promoting multi_select to Primary, justify in change_reason.\n\n\n-----------------------------------------------------\nOUTPUT RULES\n-----------------------------------------------------\n\n## OUTPUT RULES\n\n- Rank ALL specs sequentially **1..N**\n  - No gaps\n  - No duplicates\n\n- Maximum:\n  - 3 Primary\n  - 3 Secondary\n  - Rest → Tertiary\n\n- Maintain EXACT spec names from input\n  - No additions\n  - No removals\n  - No renames\n\n- Every spec MUST have at least one `sanity_tag`\n  - Use `\"OK\"` if no issues found\n\n- `change_reason` MUST cite specific numbers from ALL 3 signals\n\n### Format\n\nImp: X [High/Med/Low], ProdCount: Y [High/Med/Low], FillRate: Z% [High/Med/Low].\nConvergence: [STRONG/MODERATE/WEAK].\nRule applied: [OK/IMPLIED/etc….].\nTier: [Primary/Secondary/Tertiary].\n\n\n- If a TIEBREAKER was applied, append:TIEBREAKER: [reasoning]\n\n-----------------------------------------------------\nOUTPUT FORMAT (STRICT JSON ONLY — no markdown, no backticks, no explanation)\n-----------------------------------------------------\n{\n  \"mcat_id\": <number>,\n  \"category_name\": \"<string>\",\n  \"method\": \"LLM_Reasoning\",\n  \"results\": [\n    {\n      \"spec_name\": \"<exact name from input>\",\n      \"current_tier\": \"<tier from input>\",\n      \"final_rank\": <integer 1..N>,\n      \"final_tier\": \"Primary|Secondary|Tertiary\",\n      \"sanity_tags\": [\"OK|IMPLIED|DATA_ARTIFACT|WEAK_EVIDENCE\"],\n      \"change_reason\": \"Imp: X, ProdCount: Y, FillRate: Z%. <reasoning>\"\n    }\n  ]\n}\n",
+        "hasOutputParser": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        15536,
+        1968
+      ],
+      "id": "2565f9c6-ba0b-4246-9d3c-1ba594f8753d",
+      "name": "Branch A — LLM Sequencing",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "google/gemini-2.5-flash",
+          "mode": "list",
+          "cachedResultName": "google/gemini-2.5-flash"
+        },
+        "builtInTools": {},
+        "options": {
+          "timeout": 180000
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        15520,
+        2256
+      ],
+      "id": "8b4f4811-6a0d-4c7c-a1ca-da7435ca61ae",
+      "name": "Branch A LLM",
+      "credentials": {
+        "openAiApi": {
+          "id": "UZ5BfRnTppxhBHXI",
+          "name": "OpenAi account 400"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\n// ------------------------------------------------\n// Parse Branch A LLM output (robust version)\n// ------------------------------------------------\n\nconst first = $input.first().json;\n\nlet raw =\n  first.output ??\n  first.text ??\n  first.message ??\n  first.response ??\n  null;\n\nif (raw && typeof raw === 'object' && raw.output) raw = raw.output;\n\n\n// -----------------------------\n// JSON repair function\n// -----------------------------\nfunction cleanJson(s) {\n  return s\n    .replace(/[\\u0000-\\u001F]+/g, ' ')       // remove control chars\n    .replace(/[^\\x00-\\x7F]+/g, ' ')          // remove non-ASCII garbage (e.g. \"перeд\")\n    .replace(/,\\s*}/g, '}')                  // trailing commas\n    .replace(/,\\s*]/g, ']')\n    .replace(/}\\s*[A-Za-z]+\\s*,/g, '},')     // remove stray tokens between objects\n    .replace(/```json/gi, '')                // remove markdown fences\n    .replace(/```/g, '')\n    .trim();\n}\n\nfunction safeParse(s) {\n  try {\n    return JSON.parse(cleanJson(s));\n  } catch {\n    return null;\n  }\n}\n\nlet parsed = null;\n\n\n// -----------------------------\n// Extract JSON\n// -----------------------------\nif (typeof raw === 'string') {\n\n  const block = raw.match(/```json\\s*([\\s\\S]*?)\\s*```/i);\n\n  if (block) parsed = safeParse(block[1]);\n\n  if (!parsed) parsed = safeParse(raw);\n\n}\n\nelse if (typeof raw === 'object') {\n  parsed = raw;\n}\n\n\n// -----------------------------\n// Fail safe\n// -----------------------------\nif (!parsed) {\n  return [{\n    json: {\n      branch: 'A',\n      error: 'Parse failed',\n      raw_sample: String(raw).slice(0,500)\n    }\n  }];\n}\n\n\n// -----------------------------\n// Extract results container\n// -----------------------------\nfunction findResults(o) {\n\n  if (!o) return null;\n\n  if (Array.isArray(o.results)) return o;\n\n  for (const k of ['output','data','response']) {\n    if (o[k] && Array.isArray(o[k].results)) return o[k];\n  }\n\n  return null;\n}\n\nconst container = findResults(parsed);\n\nif (!container) {\n  return [{\n    json: {\n      branch: 'A',\n      error: 'No results[]'\n    }\n  }];\n}\n\n\n// -----------------------------\n// Success\n// -----------------------------\nreturn [{\n  json: {\n    branch: 'A',\n    ...container\n  }\n}];\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        15968,
+        1968
+      ],
+      "id": "97f7690a-2bc4-4222-bee5-be3654879c4e",
+      "name": "Parse Branch A"
+    },
+    {
+      "parameters": {
+        "numberInputs": 5
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        14080,
+        1936
+      ],
+      "id": "9f5921a5-b7c0-492d-b7e4-efc2064ba357",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { buyer_specs: [] } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        13488,
+        1824
+      ],
+      "id": "88fcffa5-d2eb-4c22-862c-b6c28b3ca7eb",
+      "name": "Empty Buyer Specs"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1r-ImZUGZ5XZiHHXXyQa7aR7tejsJSKMgPBvNvVEuOTc",
+          "mode": "list",
+          "cachedResultName": "MCAT List",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1r-ImZUGZ5XZiHHXXyQa7aR7tejsJSKMgPBvNvVEuOTc/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 675032548,
+          "mode": "list",
+          "cachedResultName": "Output Data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1r-ImZUGZ5XZiHHXXyQa7aR7tejsJSKMgPBvNvVEuOTc/edit#gid=675032548"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "mcat_id",
+              "lookupValue": "={{ $json.mcat_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        12992,
+        2448
+      ],
+      "id": "c6f14d60-0f6c-4cb0-b357-1cbe0063424c",
+      "name": "Missing Spec Sheet",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "w2cXsr3Q4muTWk3H",
+          "name": "Google Sheets account 257"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().map(item => {\n    let fs = item.json.final_specs;\n    let parsed = {};\n\n    // 🧹 Step 1: Clean known bad patterns (defensive fix)\n    if (typeof fs === 'string') {\n        try {\n            // Remove duplicate/broken trailing input_type entries\n            fs = fs.replace(/,\\s*\"input_type\"\\s*:\\s*\"radio_button\"\\s*}/g, '}');\n\n            // Remove any dangling input_type outside objects\n            fs = fs.replace(/,\\s*\"input_type\"\\s*:\\s*\"radio_button\"\\s*(?=[,\\]])/g, '');\n\n        } catch (e) {\n            console.log(\"Pre-clean error:\", e.message);\n        }\n    }\n\n    // 🧠 Step 2: Safe JSON parsing\n    if (fs) {\n        try {\n            parsed = typeof fs === 'string' ? JSON.parse(fs) : fs;\n        } catch (e) {\n            console.log(\"❌ JSON PARSE ERROR:\", e.message);\n            console.log(\"RAW INPUT:\", fs);\n            parsed = {};\n        }\n    }\n\n    // 🔍 Step 3: Extract finalized specs safely\n    let finalSpecs = {};\n\n    if (Array.isArray(parsed)) {\n        const first = parsed[0] || {};\n\n        if (first.finalized_specs && typeof first.finalized_specs === 'object') {\n            finalSpecs = first.finalized_specs;\n\n        } else if (first.finalized_primary_specs) {\n            finalSpecs = first;\n        }\n\n    } else if (parsed.finalized_specs && typeof parsed.finalized_specs === 'object') {\n        finalSpecs = parsed.finalized_specs;\n\n    } else if (parsed.finalized_primary_specs) {\n        finalSpecs = parsed;\n    }\n\n    // 🛡️ Step 4: अंतिम fallback (avoid blank output)\n    if (!finalSpecs || Object.keys(finalSpecs).length === 0) {\n        console.log(\"⚠️ Empty finalSpecs for mcat:\", item.json.mcat_id);\n    }\n\n    return {\n        json: {\n            mcat_id: item.json.mcat_id,\n            mcat_name: item.json.mcat_name,\n            finalized_specs: finalSpecs\n        }\n    };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        13200,
+        2448
+      ],
+      "id": "0046218c-2b50-403f-8109-4d4ad21f485a",
+      "name": "Get Missing Specs",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1KR_ywyZwvv7hJU6PE2pKw1p0FuCzjOhrp9N8zaWAs-U",
+          "mode": "list",
+          "cachedResultName": "Sequence Addtion new",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1KR_ywyZwvv7hJU6PE2pKw1p0FuCzjOhrp9N8zaWAs-U/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1599895681,
+          "mode": "list",
+          "cachedResultName": "Spec Sequence Decision",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1KR_ywyZwvv7hJU6PE2pKw1p0FuCzjOhrp9N8zaWAs-U/edit#gid=1599895681"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "branch",
+              "displayName": "branch",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "mcat_id",
+              "displayName": "mcat_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "category_name",
+              "displayName": "category_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "method",
+              "displayName": "method",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "spec_name",
+              "displayName": "spec_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "current_tier",
+              "displayName": "current_tier",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "final_rank",
+              "displayName": "final_rank",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "final_tier",
+              "displayName": "final_tier",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sanity_tags",
+              "displayName": "sanity_tags",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "change_reason",
+              "displayName": "change_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        16560,
+        1968
+      ],
+      "id": "c021137f-7b2a-41b4-9460-18b3f7cb435b",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "w2cXsr3Q4muTWk3H",
+          "name": "Google Sheets account 257"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        11968,
+        2000
+      ],
+      "id": "c6e8418c-f35f-4152-821d-8a55716e7375",
+      "name": "Limit"
+    },
+    {
+      "parameters": {
+        "jsCode": "const output = [];\n\nfor (const item of $input.all()) {\n  const branch = item.json.branch;\n  const mcat_id = item.json.mcat_id;\n  const category_name = item.json.category_name;\n  const method = item.json.method;\n\n  const results = item.json.results || [];\n\n  for (const spec of results) {\n    output.push({\n      json: {\n        branch,\n        mcat_id,\n        category_name,\n        method,\n        spec_name: spec.spec_name,\n        current_tier: spec.current_tier,\n        final_rank: spec.final_rank,\n        final_tier: spec.final_tier,\n        sanity_tags: (spec.sanity_tags || []).join(\", \"),\n        change_reason: spec.change_reason\n      }\n    });\n  }\n}\n\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        16224,
+        1968
+      ],
+      "id": "38d913ef-69fc-4159-afa3-69c481984037",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1r-ImZUGZ5XZiHHXXyQa7aR7tejsJSKMgPBvNvVEuOTc",
+          "mode": "list",
+          "cachedResultName": "MCAT List",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1r-ImZUGZ5XZiHHXXyQa7aR7tejsJSKMgPBvNvVEuOTc/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 542637192,
+          "mode": "list",
+          "cachedResultName": "Specs Data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1r-ImZUGZ5XZiHHXXyQa7aR7tejsJSKMgPBvNvVEuOTc/edit#gid=542637192"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "mcat_id": "={{ $json.mcat_id }}",
+            "Sequence Status": "Done"
+          },
+          "matchingColumns": [
+            "mcat_id"
+          ],
+          "schema": [
+            {
+              "id": "Custom order",
+              "displayName": "Custom order",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "search data",
+              "displayName": "search data",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "mcat_id",
+              "displayName": "mcat_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "mcat_name",
+              "displayName": "mcat_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "pmcat_id",
+              "displayName": "pmcat_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "pmcat_name",
+              "displayName": "pmcat_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Sequence Status",
+              "displayName": "Sequence Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        16816,
+        1968
+      ],
+      "id": "e1d17133-29c3-49ed-9baa-d4cfb417c779",
+      "name": "Mark Done",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "w2cXsr3Q4muTWk3H",
+          "name": "Google Sheets account 257"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        17152,
+        1680
+      ],
+      "id": "23b6c92e-3c70-4402-b244-edac7b9dd52c",
+      "name": "Wait for Both Sheets"
+    },
+    {
+      "parameters": {
+        "jsCode": "// =======================================================\n// REBUILD FINAL SPEC STRUCTURE USING NEW SEQUENCE\n// =======================================================\n\n// Sequencing output rows\nconst rows = $input.all().map(i => i.json);\n\n// Get original spec structure\nconst original = $('Get Missing Specs').first().json;\n\n// Extract category info\nconst categoryName = original.mcat_name || original.category_name || null;\nconst mcatId = original.mcat_id || null;\n\n// Flatten original specs into lookup\nconst specLookup = {};\n\nconst tiers = [\n  'finalized_primary_specs',\n  'finalized_secondary_specs',\n  'finalized_tertiary_specs'\n];\n\nfor (const t of tiers) {\n  const specs = original.finalized_specs?.[t]?.specs || [];\n\n  for (const s of specs) {\n    specLookup[s.spec_name] = {\n      spec_name: s.spec_name,\n      options: s.options || [],\n      input_type: s.input_type || 'radio_button'\n    };\n  }\n}\n\n// Sort sequencing rows by rank\nrows.sort((a,b) => Number(a.final_rank) - Number(b.final_rank));\n\nconst primary = [];\nconst secondary = [];\nconst tertiary = [];\n\n// Build new spec structure\nfor (const r of rows) {\n\n  const spec = specLookup[r.spec_name];\n  if (!spec) continue;\n\n  if (r.final_tier === 'Primary') {\n    primary.push(spec);\n  }\n  else if (r.final_tier === 'Secondary') {\n    secondary.push(spec);\n  }\n  else {\n    tertiary.push(spec);\n  }\n}\n\n// Final output structure\nreturn [{\n  json: {\n    category_name: categoryName,\n    mcat_id: mcatId,\n    finalized_specs: {\n      finalized_primary_specs: { specs: primary },\n      finalized_secondary_specs: { specs: secondary },\n      finalized_tertiary_specs: { specs: tertiary }\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        16480,
+        1632
+      ],
+      "id": "c8f4a88b-6125-4995-bd16-73f2a03a2c94",
+      "name": "Code in JavaScript3"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1KR_ywyZwvv7hJU6PE2pKw1p0FuCzjOhrp9N8zaWAs-U",
+          "mode": "list",
+          "cachedResultName": "Sequence Addtion new",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1KR_ywyZwvv7hJU6PE2pKw1p0FuCzjOhrp9N8zaWAs-U/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 794088952,
+          "mode": "list",
+          "cachedResultName": "Spec Sequence Data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1KR_ywyZwvv7hJU6PE2pKw1p0FuCzjOhrp9N8zaWAs-U/edit#gid=794088952"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "category_name",
+              "displayName": "category_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "mcat_id",
+              "displayName": "mcat_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "spec_name",
+              "displayName": "spec_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "current_tier",
+              "displayName": "current_tier",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "option_count",
+              "displayName": "option_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "input_type",
+              "displayName": "input_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "product_count",
+              "displayName": "product_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "fill_rate",
+              "displayName": "fill_rate",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "impression",
+              "displayName": "impression",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "example_values",
+              "displayName": "example_values",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "match_confidence",
+              "displayName": "match_confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        15680,
+        1728
+      ],
+      "id": "3a19d715-a49f-483a-8844-871a203d8b2f",
+      "name": "Append row in sheet2",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "w2cXsr3Q4muTWk3H",
+          "name": "Google Sheets account 257"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\n// ============================================================\n// FLATTEN unified_specs → one item per spec\n// ============================================================\n\nconst item = $input.first().json;\n\nconst categoryName = item.category_name;\nconst mcatId = item.mcat_id;\nconst specs = item.unified_specs || [];\n\nconst out = [];\n\nfor (const s of specs) {\n\n  out.push({\n    json: {\n      category_name: categoryName,\n      mcat_id: mcatId,\n\n      spec_name: s.spec_name,\n      current_tier: s.current_tier,\n\n      option_count: s.option_count,\n      input_type: s.input_type,\n\n      product_count: s.product_count,\n      fill_rate: s.fill_rate,\n      impression: s.impression,\n\n      example_values: s.example_values,\n      match_confidence: s.match_confidence\n    }\n  });\n\n}\n\nreturn out;\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        15360,
+        1728
+      ],
+      "id": "9720de9a-6656-4fcd-9b99-5f07535bad18",
+      "name": "Code in JavaScript4"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1KR_ywyZwvv7hJU6PE2pKw1p0FuCzjOhrp9N8zaWAs-U",
+          "mode": "list",
+          "cachedResultName": "Sequence Addtion new",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1KR_ywyZwvv7hJU6PE2pKw1p0FuCzjOhrp9N8zaWAs-U/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 296242602,
+          "mode": "list",
+          "cachedResultName": "Output",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1KR_ywyZwvv7hJU6PE2pKw1p0FuCzjOhrp9N8zaWAs-U/edit#gid=296242602"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "mcat_id": "={{ $json.mcat_id }}",
+            "specs": "={{ JSON.stringify($json) }}",
+            "mcat_name": "={{ $json.category_name }}"
+          },
+          "matchingColumns": [
+            "mcat_id"
+          ],
+          "schema": [
+            {
+              "id": "mcat_id",
+              "displayName": "mcat_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "mcat_name",
+              "displayName": "mcat_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "specs",
+              "displayName": "specs",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        16832,
+        1520
+      ],
+      "id": "46de42d9-d5a3-493c-9ca9-5d3e19c19c91",
+      "name": "Append row in sheet3",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "w2cXsr3Q4muTWk3H",
+          "name": "Google Sheets account 257"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\nconst category = input.category_name;\nconst mappings = input.mappings || [];\n\nconst rows = [];\n\nfor (const m of mappings) {\n\n  const sellerSpec = m.seller_spec_name;\n  const confidence = m.match_confidence;\n\n  for (const v of m.matched_call_names || []) {\n    rows.push({\n      category_name: category,\n      seller_spec_name: sellerSpec,\n      source_type: \"call\",\n      source_spec_name: v,\n      match_confidence: confidence\n    });\n  }\n\n  for (const v of m.matched_fill_rate_names || []) {\n    rows.push({\n      category_name: category,\n      seller_spec_name: sellerSpec,\n      source_type: \"fill_rate\",\n      source_spec_name: v,\n      match_confidence: confidence\n    });\n  }\n\n  for (const v of m.matched_search_names || []) {\n    rows.push({\n      category_name: category,\n      seller_spec_name: sellerSpec,\n      source_type: \"search\",\n      source_spec_name: v,\n      match_confidence: confidence\n    });\n  }\n\n}\n\nreturn rows.map(r => ({ json: r }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        15104,
+        1568
+      ],
+      "id": "6d085968-7f34-4c3f-92aa-02c474304fab",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1KR_ywyZwvv7hJU6PE2pKw1p0FuCzjOhrp9N8zaWAs-U",
+          "mode": "list",
+          "cachedResultName": "Sequence Addtion new",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1KR_ywyZwvv7hJU6PE2pKw1p0FuCzjOhrp9N8zaWAs-U/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 888252852,
+          "mode": "list",
+          "cachedResultName": "Spec Mapping",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1KR_ywyZwvv7hJU6PE2pKw1p0FuCzjOhrp9N8zaWAs-U/edit#gid=888252852"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "category_name",
+              "displayName": "category_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "seller_spec_name",
+              "displayName": "seller_spec_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "source_type",
+              "displayName": "source_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "source_spec_name",
+              "displayName": "source_spec_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "match_confidence",
+              "displayName": "match_confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        15376,
+        1552
+      ],
+      "id": "a4f68bd9-2e1c-4d2a-952a-192d0eba43dd",
+      "name": "Append row in sheet1",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "w2cXsr3Q4muTWk3H",
+          "name": "Google Sheets account 257"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Manual Trigger": [
+      {
+        "json": {},
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Pending MCATs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Pending MCATs": {
+      "main": [
+        [
+          {
+            "node": "Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Buyer Call API",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Fill Rate Data",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Buyer Search Data",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Missing Spec Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buyer Call API": {
+      "main": [
+        [
+          {
+            "node": "Extract Buyer CSV URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Buyer CSV URL": {
+      "main": [
+        [
+          {
+            "node": "Has Buyer CSV?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Buyer CSV?": {
+      "main": [
+        [
+          {
+            "node": "Fetch Buyer CSV",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Empty Buyer Specs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Buyer CSV": {
+      "main": [
+        [
+          {
+            "node": "Extract CSV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract CSV": {
+      "main": [
+        [
+          {
+            "node": "Process Buyer CSV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Buyer CSV": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Fill Rate Data": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Get Buyer Search Data": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Build Mapper Input": {
+      "main": [
+        [
+          {
+            "node": "Mapper Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mapper Agent": {
+      "main": [
+        [
+          {
+            "node": "Parse Mapper Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Mapper Output": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Join Numbers (Code)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Join Numbers (Code)": {
+      "main": [
+        [
+          {
+            "node": "Branch A — LLM Sequencing",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Code in JavaScript4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Branch A — LLM Sequencing": {
+      "main": [
+        [
+          {
+            "node": "Parse Branch A",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Branch A": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mapper LLM": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Mapper Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Branch A LLM": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Branch A — LLM Sequencing",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Empty Buyer Specs": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Build Mapper Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Missing Spec Sheet": {
+      "main": [
+        [
+          {
+            "node": "Get Missing Specs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Missing Specs": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "Limit": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript3",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Mark Done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for Both Sheets": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Done": {
+      "main": [
+        [
+          {
+            "node": "Wait for Both Sheets",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript3": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript4": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet3": {
+      "main": [
+        [
+          {
+            "node": "Wait for Both Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "89dcc263-4b4d-4f2f-bb10-cd5d851d6738",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "17519d3ef9735db55aeaaca554134cc04945a8942840756f95f4251d52adf708"
+  },
+  "id": "AJvw56cQvwr-Bh2_xFcVX",
+  "tags": []
+}

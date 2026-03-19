@@ -1,0 +1,1460 @@
+{
+  "name": "Missing Spec Optimizer - Complete Flow v2",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -2336,
+        544
+      ],
+      "id": "c23c9703-3276-4011-be56-cca5418ec4b0",
+      "name": "When clicking 'Execute workflow'"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        -1936,
+        544
+      ],
+      "id": "0f97f538-9ae3-46e8-af2e-0957b23a1ec2",
+      "name": "Limit",
+      "notesInFlow": true,
+      "notes": "Remove or increase for production"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -1744,
+        544
+      ],
+      "id": "92850783-6412-4d1b-be4f-27b9a53c3bf3",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "name": "Replace Me",
+      "typeVersion": 1,
+      "position": [
+        -1568,
+        912
+      ],
+      "id": "f080de82-1c4b-4c27-95ce-59f70957e639"
+    },
+    {
+      "parameters": {
+        "url": "=https://get-presigned-url-for-mcat-w2yrp7i6za-el.a.run.app/?mcat_id={{ $json.mcat_id }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -1520,
+        560
+      ],
+      "id": "47219e11-95fb-4844-9f6b-5b8aa14d0907",
+      "name": "Seller Specs API"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $json;\n\nfunction get(obj, path, def = undefined) {\n  return path.split('.').reduce((a, b) => (a && a[b] !== undefined) ? a[b] : def, obj);\n}\n\nconst mcat_id = item.mcat_id || get(item, 'mcatId') || null;\n\nlet url = get(item, 'finalized_specs.file_info.url');\n\nif (!url) {\n  const fileInfo = get(item, 'finalized_specs.file_info');\n  if (Array.isArray(fileInfo) && fileInfo.length > 0) {\n    url = fileInfo[0].url || fileInfo[0].download_url || null;\n  }\n}\n\nif (!url) {\n  const jsonStr = JSON.stringify(item);\n  const m = jsonStr.match(/https:\\/\\/storage\\.googleapis\\.com\\/[^\\s\"']+/);\n  if (m) url = m[0];\n}\n\nreturn [{ json: { mcat_id, finalized_spec_url: url || null } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1328,
+        544
+      ],
+      "id": "57c305d5-7c22-4063-8fa4-a9f6abd2a1e6",
+      "name": "Seller Spec Link"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.finalized_spec_url }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -1136,
+        544
+      ],
+      "id": "deab2ebc-621d-4979-81d5-40b37efc6706",
+      "name": "Seller Specs"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract and store seller specs for downstream use\nconst sellerData = $json;\n\nconst primary = sellerData.finalized_specs?.finalized_primary_specs?.specs || [];\nconst secondary = sellerData.finalized_specs?.finalized_secondary_specs?.specs || [];\nconst tertiary = sellerData.finalized_specs?.finalized_tertiary_specs?.specs || [];\n\nconst current_specs = [];\n\nprimary.forEach(s => {\n  current_specs.push({\n    spec_name: s.spec_name,\n    options: s.options || [],\n    input_type: s.input_type || \"radio_button\",\n    tier: \"Primary\"\n  });\n});\n\nsecondary.forEach(s => {\n  current_specs.push({\n    spec_name: s.spec_name,\n    options: s.options || [],\n    input_type: s.input_type || \"radio_button\",\n    tier: \"Secondary\"\n  });\n});\n\ntertiary.forEach(s => {\n  current_specs.push({\n    spec_name: s.spec_name,\n    options: s.options || [],\n    input_type: s.input_type || \"radio_button\",\n    tier: \"Tertiary\"\n  });\n});\n\nreturn [{\n  json: {\n    mcat_id: sellerData.mcat_id,\n    mcat_name: sellerData.category_name,\n    current_specs,\n    raw_seller_specs: sellerData\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -928,
+        544
+      ],
+      "id": "104730d7-b1c2-4c1e-b2a7-a0f593834a7f",
+      "name": "Current Specs"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1IsqLGo284dxdUihzWZBHddr6hb8zCukkUrpSDxhNwtg",
+          "mode": "list",
+          "cachedResultName": "manan spec",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1IsqLGo284dxdUihzWZBHddr6hb8zCukkUrpSDxhNwtg/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1925517624,
+          "mode": "list",
+          "cachedResultName": "Sheet3",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1IsqLGo284dxdUihzWZBHddr6hb8zCukkUrpSDxhNwtg/edit#gid=1925517624"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Mcat Id",
+              "lookupValue": "={{ $json.mcat_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -688,
+        352
+      ],
+      "id": "9cbdd004-a6d7-4d1e-9246-ccf13e1476a6",
+      "name": "Custom Specs",
+      "retryOnFail": true,
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "w2cXsr3Q4muTWk3H",
+          "name": "Google Sheets account 257"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nconst output = items.map(item => {\n  const data = item.json;\n  const mcatId = data[\"Mcat Id\"];\n  const mcatName = data[\"Mcat Name\"];\n\n  let missingSpecs = [];\n  try {\n    missingSpecs = JSON.parse(data[\"Missing Spec\"] || \"[]\");\n  } catch (e) {\n    missingSpecs = [];\n  }\n\n  const custom_specs = missingSpecs.map(spec => ({\n    spec_name: spec.spec_name,\n    sample_values: spec.options || []\n  }));\n\n  return {\n    json: {\n      mcat_id: mcatId,\n      mcat_name: mcatName,\n      custom_specs: custom_specs,\n      source: \"custom_specs\"\n    }\n  };\n});\n\nreturn output.length > 0 ? output : [{ json: { custom_specs: [], source: \"custom_specs\" } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -432,
+        352
+      ],
+      "id": "8271aaf4-915e-46f2-9fc4-7adb5dd9c762",
+      "name": "Custom Spec Summary"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1cFA7xlxoSrb-2YxUzKRoMn8PDCs0eT0UMmphM4-4Qu0",
+          "mode": "list",
+          "cachedResultName": "Missing Checker Sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1cFA7xlxoSrb-2YxUzKRoMn8PDCs0eT0UMmphM4-4Qu0/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1925919112,
+          "mode": "list",
+          "cachedResultName": "Output Sheet 2",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1cFA7xlxoSrb-2YxUzKRoMn8PDCs0eT0UMmphM4-4Qu0/edit#gid=1925919112"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "category",
+              "lookupValue": "={{ $json.mcat_name }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -688,
+        544
+      ],
+      "id": "79cb5bc5-ffa6-4a0c-afc6-50c66f23ff00",
+      "name": "Buyer Seller Call specs",
+      "retryOnFail": true,
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "w2cXsr3Q4muTWk3H",
+          "name": "Google Sheets account 257"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all();\n\nconst specMap = {};\nlet mcat_name = null;\n\nfor (const item of rows) {\n  const spec = item.json.spec_name;\n  const values = item.json.example_values;\n\n  if (!mcat_name && item.json.category) {\n    mcat_name = item.json.category;\n  }\n\n  if (!spec) continue;\n\n  if (!specMap[spec]) {\n    specMap[spec] = {\n      spec_name: spec,\n      sample_values: []\n    };\n  }\n\n  if (values) {\n    const splitValues = String(values)\n      .split(',')\n      .map(v => v.trim())\n      .filter(v => v.length > 0);\n\n    for (const val of splitValues) {\n      if (!specMap[spec].sample_values.includes(val)) {\n        specMap[spec].sample_values.push(val);\n      }\n    }\n  }\n}\n\nconst result = Object.values(specMap).map(spec => ({\n  spec_name: spec.spec_name,\n  sample_values: spec.sample_values.slice(0, 5)\n}));\n\nreturn [{\n  json: {\n    mcat_name,\n    buyer_specs: result,\n    source: \"buyer_seller_call\"\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -432,
+        544
+      ],
+      "id": "a489c102-240e-49ad-8fc2-158bde258b72",
+      "name": "Buyer Seller Call Summary"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SHEET_ID_HERE",
+          "mode": "list",
+          "cachedResultName": "Buyer Search Data Sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID_HERE/edit"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "YOUR_SHEET_GID_HERE",
+          "mode": "list",
+          "cachedResultName": "Buyer Search Sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID_HERE/edit#gid=YOUR_SHEET_GID_HERE"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "category",
+              "lookupValue": "={{ $json.mcat_name }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -688,
+        752
+      ],
+      "id": "9a247acb-d495-41c2-873a-f197d78f482c",
+      "name": "Buyer Search Data",
+      "retryOnFail": true,
+      "notesInFlow": true,
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "w2cXsr3Q4muTWk3H",
+          "name": "Google Sheets account 257"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "⚠️ UPDATE: Set correct Sheet ID and GID for Buyer Search Data"
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all();\n\nconst specMap = {};\nlet mcat_name = null;\n\nfor (const item of rows) {\n  // Try multiple possible column names\n  const spec = item.json.spec_name || item.json.search_spec || item.json.attribute;\n  const values = item.json.example_values || item.json.search_values || item.json.values || item.json.search_terms;\n\n  if (!mcat_name && (item.json.category || item.json.mcat_name)) {\n    mcat_name = item.json.category || item.json.mcat_name;\n  }\n\n  if (!spec) continue;\n\n  if (!specMap[spec]) {\n    specMap[spec] = {\n      spec_name: spec,\n      sample_values: []\n    };\n  }\n\n  if (values) {\n    const splitValues = String(values)\n      .split(',')\n      .map(v => v.trim())\n      .filter(v => v.length > 0);\n\n    for (const val of splitValues) {\n      if (!specMap[spec].sample_values.includes(val)) {\n        specMap[spec].sample_values.push(val);\n      }\n    }\n  }\n}\n\nconst result = Object.values(specMap).map(spec => ({\n  spec_name: spec.spec_name,\n  sample_values: spec.sample_values.slice(0, 5)\n}));\n\nreturn [{\n  json: {\n    mcat_name,\n    buyer_search_specs: result,\n    source: \"buyer_search_data\"\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -432,
+        752
+      ],
+      "id": "c43fb150-d2c1-4a3d-9aa4-8e005a73b058",
+      "name": "Buyer Search Data Summary"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Combine all sources into unified candidate specs\nconst items = $input.all();\n\n// Get current specs from the first pipeline\nconst currentSpecsNode = $items(\"Current Specs\")[0].json;\nconst mcat_id = currentSpecsNode.mcat_id;\nconst mcat_name = currentSpecsNode.mcat_name;\nconst current_specs = currentSpecsNode.current_specs || [];\n\n// Collect all candidate specs from merged sources\nlet custom_specs = [];\nlet buyer_specs = [];\nlet buyer_search_specs = [];\n\nfor (const item of items) {\n  const data = item.json;\n  \n  if (data.custom_specs) {\n    custom_specs = data.custom_specs;\n  }\n  if (data.buyer_specs) {\n    buyer_specs = data.buyer_specs;\n  }\n  if (data.buyer_search_specs) {\n    buyer_search_specs = data.buyer_search_specs;\n  }\n}\n\n// Build unified candidate specs array with source tracking\nconst candidate_specs = [];\n\n// Add custom specs\nfor (const spec of custom_specs) {\n  candidate_specs.push({\n    spec_name: spec.spec_name,\n    sample_values: spec.sample_values || [],\n    source: \"custom_specs\"\n  });\n}\n\n// Add buyer seller call specs\nfor (const spec of buyer_specs) {\n  candidate_specs.push({\n    spec_name: spec.spec_name,\n    sample_values: spec.sample_values || [],\n    source: \"buyer_seller_call\"\n  });\n}\n\n// Add buyer search specs\nfor (const spec of buyer_search_specs) {\n  candidate_specs.push({\n    spec_name: spec.spec_name,\n    sample_values: spec.sample_values || [],\n    source: \"buyer_search_data\"\n  });\n}\n\n// Store for downstream nodes\nreturn [{\n  json: {\n    mcat_id,\n    mcat_name,\n    current_specs,\n    candidate_specs,\n    custom_specs,\n    buyer_specs,\n    buyer_search_specs,\n    summary: {\n      current_specs_count: current_specs.length,\n      custom_specs_count: custom_specs.length,\n      buyer_specs_count: buyer_specs.length,\n      buyer_search_specs_count: buyer_search_specs.length,\n      total_candidates: candidate_specs.length\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        48,
+        544
+      ],
+      "id": "3c3209f6-87a3-495a-9e99-d6c69ae8d8fd",
+      "name": "Build Candidate Specs"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "google/gemini-2.5-flash",
+          "mode": "list",
+          "cachedResultName": "google/gemini-2.5-flash"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1472,
+        48
+      ],
+      "id": "21d0df2d-bf26-436a-a8a5-4733c2aaec49",
+      "name": "OpenAI Chat Model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "UZ5BfRnTppxhBHXI",
+          "name": "OpenAi account 400"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=# ROLE\n\nYou are a **Product Specification Normalization Agent** for a large Indian B2B marketplace.\n\nYour task is to **clean, standardize, merge, and deduplicate candidate specifications** discovered from multiple sources, producing a **canonical list of unique product attributes**.\n\nYou must also **compare candidate specs with existing seller specifications** and remove any candidates that are semantically overlapping.\n\nIMPORTANT:  \n- You **ONLY normalize candidate specifications**.  \n- **Do NOT invent new specifications**.\n\n---\n\n# INPUT STRUCTURE\n\nCategory Name: `{{ $json.mcat_name }}`\n\n### Candidate Specs\n{{ JSON.stringify($json.candidate_specs) }}\n\n### Seller Specs\n{{ JSON.stringify($json.current_specs) }}\n\nEach specification contains:\n- `spec_name`\n- `sample_values`\n- `source`\n\n---\n\n# OBJECTIVE\n\nProduce a **fully deduplicated and normalized list of candidate specifications** such that:\n\n1. Formatting duplicates, spelling variations, and abbreviations are merged.\n2. Singular/plural differences are unified.\n3. Semantic duplicates are merged:\n   - Candidate ↔ Candidate\n   - Candidate ↔ Seller (candidate removed if overlapping)\n4. Each final candidate represents **one unique attribute**.\n5. Sample values from merged specs are combined and deduplicated.\n6. Sources contributing to each spec are preserved.\n7. No semantic or exact duplicates remain.\n\n---\n\n# NORMALIZATION RULES\n\n## 1 Format Normalization\nTreat formatting differences as identical.\nExample: Weight / WEIGHT / weight → Weight\n\n## 2 Abbreviation Expansion\nExpand abbreviations to full form when possible.\nExample: Qty → Quantity, No → Number\n\n## 3 Typo Correction\nFix obvious spelling mistakes.\nExample: Voltge → Voltage\n\n## 4 Singular/Plural Normalization\nNormalize to singular.\nExample: Grades → Grade, Applications → Application\n\n## 5 Semantic Similarity Merging\nMerge specs representing the same attribute.\n- Candidate ↔ Candidate duplicates merged\n- Candidate overlapping with seller spec → remove candidate\nExample:  \nSize / Dimensions / Product Size → Dimensions  \nMaterial Type / Material Grade → Material  \n\n---\n\n# CANONICAL SPEC NAME SELECTION\n\nWhen merging multiple specs:\n\n1. Use the most clear, concise, commonly used marketplace name.\n2. Avoid abbreviations if a full form exists.\n3. Prefer industry-standard terminology.\n4. Ensure each spec represents **exactly one attribute**.\n\n---\n\n# SAMPLE VALUE HANDLING\n\n- Combine sample values from merged specs.\n- Remove duplicates.\n- Preserve original value formats.\n- Do not invent new values.\n\n---\n\n# SOURCE TRACKING\n\n- Include **all contributing sources** in the `sources` field.\n- Example: `[\"custom_specs\",\"buyer_seller_call\"]`\n\n---\n\n# FINAL VALIDATION (MANDATORY)\n\nBefore returning, ensure:\n\n1. No duplicate or semantically overlapping candidate specs remain.\n2. No candidate duplicates a seller spec.\n3. Each candidate represents **exactly one attribute**.\n4. Spec names follow naming rules.\n5. Sample values and sources are preserved and deduplicated.\n\n---\n\n# NAMING RULES\n\n- Title Case\n- No ALL CAPS\n- Remove trailing punctuation\n- Concise and professional\n- Represent **one attribute only**\n\n---\n\n# OUTPUT FORMAT\n\nReturn ONLY valid JSON:\n\n{\n  \"mcat_name\": \"{{ $json.mcat_name }}\",\n  \"normalized_candidate_specs\": [\n    {\n      \"spec_name\": \"Canonical Spec Name\",\n      \"merged_from\": [\"Original Spec 1\",\"Original Spec 2\"],\n      \"sources\": [\"custom_specs\",\"buyer_seller_call\",\"buyer_search_data\"],\n      \"sample_values\": [\"value1\",\"value2\"]\n    }\n  ]\n}\n\nReturn ONLY valid JSON. No explanations.",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1456,
+        -192
+      ],
+      "id": "6d490108-696c-4488-b902-b2ecce5baf35",
+      "name": "AI Agent 1 - Normalization"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $json.output || \"\";\n\n// Remove markdown wrappers\nlet cleaned = raw\n  .replace(/```json/g, \"\")\n  .replace(/```/g, \"\")\n  .trim();\n\n// Extract JSON object\nconst start = cleaned.indexOf(\"{\");\nconst end = cleaned.lastIndexOf(\"}\");\n\nif (start !== -1 && end !== -1) {\n  cleaned = cleaned.slice(start, end + 1);\n}\n\n// Fix common LLM JSON mistakes\ncleaned = cleaned\n  .replace(/,\\s*,/g, \",\")\n  .replace(/,\\s*}/g, \"}\")\n  .replace(/,\\s*]/g, \"]\");\n\nlet parsed;\n\ntry {\n  parsed = JSON.parse(cleaned);\n} catch (err) {\n  throw new Error(\"AI Agent 1 returned invalid JSON: \" + cleaned.substring(0, 500));\n}\n\nreturn [{ json: parsed }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1840,
+        -176
+      ],
+      "id": "c0d5427e-e9b4-4f71-b851-d04f18a923d5",
+      "name": "Parse Normalization Output"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "google/gemini-2.5-flash",
+          "mode": "list",
+          "cachedResultName": "google/gemini-2.5-flash"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1040,
+        832
+      ],
+      "id": "a1f0c467-be73-4c5d-92b3-37f55978d88f",
+      "name": "OpenAI Chat Model3",
+      "credentials": {
+        "openAiApi": {
+          "id": "UZ5BfRnTppxhBHXI",
+          "name": "OpenAi account 400"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=# ROLE\nYou are an **Option Generation Agent** for a large Indian B2B marketplace.\nYour task is to generate **standardised, market-relevant option values** for candidate \nproduct specifications.\n\n---\n\n# INPUT TYPE CLASSIFICATION RULES\n\n## MUST be `text_type` (options = []):\n- Model numbers, SKU codes, part numbers, serial numbers\n- Brand names ONLY when the category has no dominant brands \n  (default to generating options if 3+ brands are known in Indian B2B market)\n- Exact custom dimensions (e.g., \"Custom Size\", \"As per drawing\")\n- Free-form descriptions (e.g., \"Special Features\", \"Additional Notes\")\n- Specs where no standard commercial values exist\n- Specs with infinite valid variations\n\n## MUST be `radio_button`:\n- Single-choice attributes (Material Type, Power Source, Grade)\n- Mutually exclusive states (Yes/No, Indoor/Outdoor)\n- Single numeric ratings (Voltage, Power, Speed)\n- Attributes where a product has exactly ONE value\n\n## MUST be `multi_select`:\n- Attributes where a single product can simultaneously have MULTIPLE values\n- Examples: Certifications (ISO 9001 AND CE AND BIS), \n            Compatible With (multiple machine types),\n            Features (Soft Start AND Overload Protection AND Variable Speed)\n- When in doubt: ask \"can one product have more than one value?\" — if yes, multi_select\n\n---\n\n# OPTION GENERATION RULES\n\n## Quality Rules:\n1. **Maximum 10 options** for radio_button specs — choose the 10 MOST COMMON in \n   Indian B2B trade. For multi_select specs, up to 15 options are allowed.\n2. **No duplicates** — \"10 kg\", \"10kg\", \"10 Kg\" are the same. Keep only one.\n3. **No vague fillers** — Never use: Other, Custom, NA, Various, As Required, \n   Any, Miscellaneous, General Purpose (unless it is a genuinely traded category value)\n4. **Under 30 characters** per option\n5. **Standardised units** — Always use: kg, mm, V, W, A, rpm, °C, %, L, mL, Hz\n   Never use: kgs, MM, Volt, Watts, Amps, Celsius\n\n## Formatting Rules:\n6. **Compact numeric format** — \"12V\" not \"12 Volt\"; \"50Hz\" not \"50 cycles per second\"\n7. **Title Case for text** — \"Stainless Steel\" not \"stainless steel\" or \"STAINLESS STEEL\"\n8. **Popularity order** for numeric options — 5mm, 10mm, 15mm, 20mm. Ensure to include the most popular options first..\n9. **Frequency-based order** for categorical options — most common in Indian market first\n\n10. Use ISI/BIS standards where applicable.\n11. Use local trade terminology — \"GI\" for Galvanized Iron, \"MS\" for Mild Steel\n12. Do not give range type options until market standard for the spec\n12. Think like a Indian B2B seller — what spec values would a seller actually use?\n\n---\n\n# HANDLING SAMPLE VALUES\n\nSample values are hints about FORMAT and MEANING only — not the final options list.\n\n| Sample Quality | Action |\n|---|---|\n| Clean, consistent values | Use as format reference; generate full standard market set |\n| Mixed quality (some good, some bad) | Extract the pattern; discard outliers |\n| Thin (1–2 values only) | Use to confirm spec meaning; generate full options from market knowledge |\n| Completely messy or random | Ignore entirely; generate from category + spec name knowledge |\n| Empty | Generate entirely from category + spec name knowledge |\n| Contains \"NA\", \"Other\", \"Custom\" | Ignore these values; treat as empty |\n\n---\n\n# EDGE CASE HANDLING\n\n## Ambiguous spec names:\nInterpret in context of the specific category. \"Size\" means different things for \nBearings vs Apparel vs Pipes. Choose the commercially meaningful interpretation.\n\n## Spec seems irrelevant to category:\nStill generate options if standard values exist. Do not skip or drop specs.\n\n## Yes/No specs:\nOptions: [\"Yes\", \"No\"] with input_type: \"radio_button\"\n\n\n---\n\n# TIER ASSIGNMENT RULES : For candidate specs (newly discovered), default to Tertiary as given in the input. \n\n\n---\n\n# VALIDATION CHECKLIST\n\nBefore finalizing each spec, verify:\n- [ ] Options are directly about THIS spec, not adjacent attributes\n- [ ] Options make sense for this specific category\n- [ ] A real buyer would use these as search filters\n- [ ] No duplicates or near-duplicates\n- [ ] No vague or filler options\n- [ ] Correct input_type for the spec's nature\n- [ ] Logical order (ascending numeric or frequency-based categorical)\n- [ ] All options under 30 characters\n- [ ] Units are standardized\n\n---\n\n# INPUT\n\n**Category:** {{ $json.mcat_name }}\n\n**Candidate Specs:**\n{{ JSON.stringify($json.candidate_specs) }}\n\n---\n\n# OUTPUT FORMAT\n\nReturn ONLY raw valid JSON. No markdown fences, no explanations, no preamble.\nThe response must start with { and end with }\n\n{\n  \"mcat_name\": \"Category Name\",\n  \"finalized_specs_with_options\": [\n    {\n      \"spec_name\": \"Spec Name\",\n      \"options\": [\"Option1\", \"Option2\", \"Option3\"],\n      \"input_type\": \"radio_button\",\n      \"tier\": \"Tertiary\",\n      \"sources\": [\"custom_specs\", \"buyer_seller_call\"]\n    },\n    {\n      \"spec_name\": \"Free Form Spec\",\n      \"options\": [],\n      \"input_type\": \"text_type\",\n      \"tier\": \"Tertiary\",\n      \"sources\": [\"custom_specs\"]\n    }\n  ]\n}\n\n---\n\n# COMMON MISTAKES TO AVOID\n\n1. Wrapping output in ```json fences — output must start with { directly\n2. Generating options for a different attribute than the spec name\n3.. Adding any text, explanation, or commentary outside the JSON\n\n",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1072,
+        528
+      ],
+      "id": "22b34a6d-21f6-4560-a43e-70461bf6b9c8",
+      "name": "AI Agent 3 - Option Generation"
+    },
+    {
+      "parameters": {
+        "jsCode": "let raw = $json.output || \"\";\n\nraw = raw.replace(/```json/g, \"\").replace(/```/g, \"\").trim();\n\nconst start = raw.indexOf(\"{\");\nconst end = raw.lastIndexOf(\"}\");\n\nif (start !== -1 && end !== -1) {\n  raw = raw.substring(start, end + 1);\n}\n\nraw = raw\n  .replace(/,\\s*]/g, \"]\")\n  .replace(/,\\s*}/g, \"}\");\n\nlet parsed;\ntry {\n  parsed = JSON.parse(raw);\n} catch (error) {\n  throw new Error(\"Failed to parse AI Agent 3 JSON: \" + raw.substring(0, 500));\n}\n\nreturn [{ json: parsed }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1392,
+        528
+      ],
+      "id": "86f04693-dfbd-46b6-933c-9bedaea3bc42",
+      "name": "Parse Agent 3 Output"
+    },
+    {
+      "parameters": {
+        "jsCode": "const sellerNode = $items(\"Current Specs\")[0].json;\nconst optionNode = $items(\"Parse Agent 3 Output\")[0].json;\n\nconst mcat_id = sellerNode.mcat_id;\nconst mcat_name = sellerNode.mcat_name;\n\nconst sellerSpecs = sellerNode.current_specs || [];\nconst candidates = optionNode.finalized_specs_with_options || [];\n\nconst finalSpecs = [];\n\n// Seller specs\nfor (const spec of sellerSpecs) {\n  finalSpecs.push({\n    spec_name: spec.spec_name,\n    tier: spec.tier,\n    source: \"seller\",\n    reason: \"Existing seller specification.\",\n    options: spec.options || [],\n    input_type: spec.input_type || \"radio_button\"\n  });\n}\n\n// Candidate specs\nfor (const spec of candidates) {\n  finalSpecs.push({\n    spec_name: spec.spec_name,\n    tier: \"Tertiary\",\n    source: \"candidate\",\n    reason: \"Missing specification discovered from external signals.\",\n    options: spec.options || [],\n    input_type: spec.input_type || \"radio_button\"\n  });\n}\n\nreturn [{\n  json: {\n    mcat_id,\n    mcat_name,\n    finalized_specs: finalSpecs,\n    not_added_specs: []\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1584,
+        528
+      ],
+      "id": "5b38d4f5-5885-4699-af8c-8b19e32fd88c",
+      "name": "Combine Specs with Options"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $json;\n\nconst mcatId = data.mcat_id;\nconst mcatName = data.mcat_name;\nconst specs = data.finalized_specs || [];\n\nconst primary = [];\nconst secondary = [];\nconst tertiary = [];\n\nspecs.forEach(spec => {\n  const specObj = {\n    spec_name: spec.spec_name,\n    options: spec.options || [],\n    input_type: spec.input_type || \"radio_button\"\n  };\n\n  const tier = (spec.tier || \"\").toLowerCase();\n\n  if (tier === \"primary\") primary.push(specObj);\n  else if (tier === \"secondary\") secondary.push(specObj);\n  else tertiary.push(specObj);\n});\n\nreturn [{\n  json: {\n    category_name: mcatName,\n    mcat_id: mcatId,\n    finalized_specs: {\n      finalized_primary_specs: { specs: primary },\n      finalized_secondary_specs: { specs: secondary },\n      finalized_tertiary_specs: { specs: tertiary }\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1808,
+        528
+      ],
+      "id": "7e83fddc-2e52-443b-8ae7-592579665b5b",
+      "name": "Format Final Output"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1r-ImZUGZ5XZiHHXXyQa7aR7tejsJSKMgPBvNvVEuOTc",
+          "mode": "list",
+          "cachedResultName": "MCAT List",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1r-ImZUGZ5XZiHHXXyQa7aR7tejsJSKMgPBvNvVEuOTc/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 542637192,
+          "mode": "list",
+          "cachedResultName": "Specs Data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1r-ImZUGZ5XZiHHXXyQa7aR7tejsJSKMgPBvNvVEuOTc/edit#gid=542637192"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Status"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -2128,
+        544
+      ],
+      "id": "2d3cb2d6-f53e-4ecc-b520-f7f79530384c",
+      "name": "Get row(s) in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "w2cXsr3Q4muTWk3H",
+          "name": "Google Sheets account 257"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -128,
+        528
+      ],
+      "id": "4ed98ce1-5710-4f34-8997-8e6a0b523c52",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1r-ImZUGZ5XZiHHXXyQa7aR7tejsJSKMgPBvNvVEuOTc",
+          "mode": "list",
+          "cachedResultName": "MCAT List",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1r-ImZUGZ5XZiHHXXyQa7aR7tejsJSKMgPBvNvVEuOTc/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 675032548,
+          "mode": "list",
+          "cachedResultName": "Output Data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1r-ImZUGZ5XZiHHXXyQa7aR7tejsJSKMgPBvNvVEuOTc/edit#gid=675032548"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "mcat_id": "={{ $json.mcat_id }}",
+            "candidate_specs": "={{ JSON.stringify($json.candidate_specs) }}"
+          },
+          "matchingColumns": [
+            "mcat_id"
+          ],
+          "schema": [
+            {
+              "id": "mcat_id",
+              "displayName": "mcat_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "mcat_name",
+              "displayName": "mcat_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "current_specs",
+              "displayName": "current_specs",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "candidate_specs",
+              "displayName": "candidate_specs",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "rejected_specs",
+              "displayName": "rejected_specs",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "final_specs",
+              "displayName": "final_specs",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "date",
+              "displayName": "date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        448,
+        192
+      ],
+      "id": "7ced3b5f-9850-4aed-87fe-73bc034e4d7b",
+      "name": "Log Candidate Specs1",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "w2cXsr3Q4muTWk3H",
+          "name": "Google Sheets account 257"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1r-ImZUGZ5XZiHHXXyQa7aR7tejsJSKMgPBvNvVEuOTc",
+          "mode": "list",
+          "cachedResultName": "MCAT List",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1r-ImZUGZ5XZiHHXXyQa7aR7tejsJSKMgPBvNvVEuOTc/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 675032548,
+          "mode": "list",
+          "cachedResultName": "Output Data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1r-ImZUGZ5XZiHHXXyQa7aR7tejsJSKMgPBvNvVEuOTc/edit#gid=675032548"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "mcat_id": "={{ $json.mcat_id }}",
+            "current_specs": "={{ JSON.stringify($json) }}"
+          },
+          "matchingColumns": [
+            "mcat_id"
+          ],
+          "schema": [
+            {
+              "id": "mcat_id",
+              "displayName": "mcat_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "mcat_name",
+              "displayName": "mcat_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "current_specs",
+              "displayName": "current_specs",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "candidate_specs",
+              "displayName": "candidate_specs",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "rejected_specs",
+              "displayName": "rejected_specs",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "final_specs",
+              "displayName": "final_specs",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "date",
+              "displayName": "date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -544,
+        112
+      ],
+      "id": "9b4cea8f-6996-468f-9679-c5462777417d",
+      "name": "Log Seller Specs",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "w2cXsr3Q4muTWk3H",
+          "name": "Google Sheets account 257"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $json;\n\nconst mcat_name = data.mcat_name;\nconst normalized = data.normalized_candidate_specs || [];\n\nconst candidate_specs = normalized.map(spec => ({\n  spec_name: spec.spec_name,\n  sample_values: spec.sample_values || [],\n  sources: spec.sources || []\n}));\n\nreturn [\n  {\n    json: {\n      mcat_name,\n      candidate_specs\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1232,
+        -192
+      ],
+      "id": "5c2674a8-ec44-41da-a443-4a45bc209c69",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1r-ImZUGZ5XZiHHXXyQa7aR7tejsJSKMgPBvNvVEuOTc",
+          "mode": "list",
+          "cachedResultName": "MCAT List",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1r-ImZUGZ5XZiHHXXyQa7aR7tejsJSKMgPBvNvVEuOTc/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 675032548,
+          "mode": "list",
+          "cachedResultName": "Output Data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1r-ImZUGZ5XZiHHXXyQa7aR7tejsJSKMgPBvNvVEuOTc/edit#gid=675032548"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "mcat_id": "={{ $json.mcat_id }}",
+            "final_specs": "={{ JSON.stringify($json) }}"
+          },
+          "matchingColumns": [
+            "mcat_id"
+          ],
+          "schema": [
+            {
+              "id": "mcat_id",
+              "displayName": "mcat_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "mcat_name",
+              "displayName": "mcat_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "current_specs",
+              "displayName": "current_specs",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "candidate_specs",
+              "displayName": "candidate_specs",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "rejected_specs",
+              "displayName": "rejected_specs",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "final_specs",
+              "displayName": "final_specs",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "date",
+              "displayName": "date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2320,
+        400
+      ],
+      "id": "08077699-c8f7-43d2-88e6-884478893ec0",
+      "name": "Log Candidate Specs2",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "w2cXsr3Q4muTWk3H",
+          "name": "Google Sheets account 257"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1r-ImZUGZ5XZiHHXXyQa7aR7tejsJSKMgPBvNvVEuOTc",
+          "mode": "list",
+          "cachedResultName": "MCAT List",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1r-ImZUGZ5XZiHHXXyQa7aR7tejsJSKMgPBvNvVEuOTc/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 542637192,
+          "mode": "list",
+          "cachedResultName": "Specs Data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1r-ImZUGZ5XZiHHXXyQa7aR7tejsJSKMgPBvNvVEuOTc/edit#gid=542637192"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "mcat_id": "={{ $json.mcat_id }}",
+            "Status": "Done"
+          },
+          "matchingColumns": [
+            "mcat_id"
+          ],
+          "schema": [
+            {
+              "id": "Custom order",
+              "displayName": "Custom order",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "search data",
+              "displayName": "search data",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "mcat_id",
+              "displayName": "mcat_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "mcat_name",
+              "displayName": "mcat_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "pmcat_id",
+              "displayName": "pmcat_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "pmcat_name",
+              "displayName": "pmcat_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2320,
+        608
+      ],
+      "id": "b22cc37a-9313-4fcc-898e-f95e0055e7fc",
+      "name": "Log Candidate Specs3",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "w2cXsr3Q4muTWk3H",
+          "name": "Google Sheets account 257"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -784,
+        112
+      ],
+      "id": "fab54d29-0718-435f-b610-f988d7ac8802",
+      "name": "Wait",
+      "webhookId": "f242b2f9-789a-411a-a94a-642672d9bfcb"
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        256,
+        192
+      ],
+      "id": "04794f07-34e8-4a4b-9209-51d859ddc12a",
+      "name": "Wait1",
+      "webhookId": "e4efabe9-7b69-40c6-9dbe-a1feb6d1104e"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "google/gemini-2.5-flash",
+          "mode": "list",
+          "cachedResultName": "google/gemini-2.5-flash"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        256,
+        768
+      ],
+      "id": "ea7746c0-5de7-477c-8708-8b8ca3e072e2",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "UZ5BfRnTppxhBHXI",
+          "name": "OpenAi account 400"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "# ROLE\nYou are a **Product Specification Normalization and Merging Agent** for a large Indian B2B marketplace.\n\nYour task is to:\n1. Clean, standardize, and deduplicate candidate specifications from multiple sources\n2. Remove candidates that semantically overlap with existing seller specs\n3. Append the final validated candidates to the existing specs list\n4. Return the complete, final specification set ready for use\n\nIMPORTANT:\n- You **ONLY normalize and filter candidate specifications**\n- You **DO NOT invent new specifications**\n- You **DO NOT modify existing seller specs** in any way\n- Existing seller specs are always preserved exactly as-is\n\n---\n\n# INPUT STRUCTURE\n\nCategory Name: `{{ $json.mcat_name }}`\n\n### Existing Seller Specs (DO NOT MODIFY)\n{{ JSON.stringify($json.current_specs) }}\n\n### Candidate Specs to Normalize (from multiple sources)\n{{ JSON.stringify($json.candidate_specs) }}\n\nEach candidate spec contains:\n- `spec_name` — the attribute name\n- `sample_values` — example values for this attribute\n- `source` — origin of this spec (e.g., custom_specs, buyer_seller_call, buyer_search_data)\n\n---\n\n# STEP 1 — NORMALIZE CANDIDATE SPECS\n\nApply all normalization rules to each candidate spec:\n\n## Rule 1: Format Normalization\nTreat all formatting differences as identical. Normalize to Title Case.\nExample: WEIGHT / weight / Weight → Weight\n\n## Rule 2: Abbreviation Expansion\nExpand common abbreviations to full form.\nExamples: Qty → Quantity, No → Number, Pkg → Packaging, Mfr → Manufacturer, Min → Minimum, Max → Maximum\n\n## Rule 3: Typo Correction\nFix obvious spelling mistakes.\nExample: Voltge → Voltage, Dimesnion → Dimension\n\n## Rule 4: Singular/Plural Normalization\nAlways normalize to singular form.\nExamples: Grades → Grade, Applications → Application, Colors → Color, Types → Type\n\n## Rule 5: Candidate ↔ Candidate Semantic Merging\nIdentify candidate specs that represent the same underlying attribute and merge them into one.\n- Choose the most professional, marketplace-appropriate canonical name\n- Combine all sample_values and deduplicate\n- Combine all sources and deduplicate\n- Track all original names in merged_from\n\nExamples:\n- Size / Dimensions / Product Size → Size\n- Material Type / Material Grade / Material Quality → Material\n- Pack Quantity / Packaging Quantity / Pack Size → Packaging Quantity\n- Color / Colour / Product Color → Color\n\n---\n\n# STEP 2 — FILTER AGAINST EXISTING SELLER SPECS\n\nAfter normalizing candidates among themselves, compare every remaining candidate against the existing seller specs.\n\n**Remove a candidate if:**\n- It is an exact name match (case-insensitive) with any existing spec\n- It is a semantic duplicate of an existing spec (same attribute, different wording)\n\n**Semantic overlap examples to remove:**\n- Candidate \"Product Color\" → remove (seller already has \"Color\")\n- Candidate \"Material Type\" → remove (seller already has \"Material\")\n- Candidate \"Usage Occasion\" → remove (seller already has \"Occasion\")\n- Candidate \"Bangle Type\" → remove (seller already has \"Type\")\n- Candidate \"Pack Quantity\" → remove (seller already has \"Set Content\")\n\n**Keep a candidate if:**\n- It represents a genuinely new attribute not covered by any existing spec\n- There is no semantic overlap with any existing spec\n\nWhen in doubt about whether overlap exists, err on the side of removing the candidate.\n\n---\n\n# STEP 3 — FINAL CANDIDATE VALIDATION\n\nBefore proceeding, verify each surviving candidate:\n1. Spec name follows Title Case, no abbreviations, no trailing punctuation\n2. Spec name represents exactly ONE attribute\n3. No two surviving candidates represent the same attribute\n4. No surviving candidate overlaps with any existing seller spec\n5. Sample values are deduplicated and preserve original formats\n6. Sources list is deduplicated\n\n---\n\n# STEP 4 — CONSTRUCT FINAL MERGED SPEC LIST\n\nBuild the output by:\n1. Taking ALL existing seller specs exactly as provided (preserve spec_name, options, input_type, tier)\n2. Appending surviving normalized candidates at the end with the following structure:\n   - `spec_name`: canonical name\n   - `options`: use sample_values array (renamed to options for consistency)\n   - `input_type`: always set to \"radio_button\" for new candidates\n   - `tier`: always set to \"Tertiary\" for new candidates\n   - `sources`: list of contributing sources (extra metadata field)\n   - `merged_from`: list of original spec names before normalization (extra metadata field)\n\n---\n\n# NAMING RULES (apply to all candidate spec names)\n- Title Case only\n- No ALL CAPS\n- No abbreviations if full form exists\n- No trailing punctuation\n- Concise and professional\n- Represents exactly one attribute\n\n---\n\n# OUTPUT FORMAT\n\nReturn ONLY valid JSON in this exact structure. No explanation, no markdown, no commentary.\n\n{\n  \"mcat_id\": {{ $json.mcat_id }},\n  \"mcat_name\": \"{{ $json.mcat_name }}\",\n  \"summary\": {\n    \"existing_specs_count\": <number of original seller specs, unchanged>,\n    \"candidates_evaluated\": <total candidate specs received>,\n    \"candidates_removed_overlap\": <count removed due to seller spec overlap>,\n    \"candidates_added\": <count of new specs appended>,\n    \"final_specs_count\": <total specs in final list>\n  },\n  \"final_specs\": [\n    {\n      \"spec_name\": \"Spec Name\",\n      \"options\": [\"value1\", \"value2\"],\n      \"input_type\": \"radio_button\",\n      \"tier\": \"Primary\"\n    }\n  ],\n  \"normalized_candidates_added\": [\n    {\n      \"spec_name\": \"Canonical Spec Name\",\n      \"merged_from\": [\"Original Name 1\", \"Original Name 2\"],\n      \"sources\": [\"custom_specs\", \"buyer_seller_call\"],\n      \"sample_values\": [\"value1\", \"value2\"]\n    }\n  ],\n  \"removed_candidates\": [\n    {\n      \"spec_name\": \"Removed Candidate Name\",\n      \"reason\": \"Semantic overlap with existing spec: <existing spec name>\"\n    }\n  ]\n}\n\nThe `final_specs` array must contain ALL existing seller specs first (in original order, unmodified), followed by the newly added candidate specs.\n\nReturn ONLY valid JSON.",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        256,
+        544
+      ],
+      "id": "edfe724e-27e8-47e5-b3df-d5fc8b81a085",
+      "name": "AI Agent 1 - Normalization1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $json.output;\n\n// Strip markdown code fences if present\nconst cleaned = raw\n  .replace(/^```json\\s*/i, '')\n  .replace(/^```\\s*/i, '')\n  .replace(/```\\s*$/i, '')\n  .trim();\n\nconst parsed = JSON.parse(cleaned);\n\nreturn [{ json: parsed }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        608,
+        544
+      ],
+      "id": "06a305b1-4b17-44f9-9562-cc654faac061",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $json;\n\nconst candidateSpecs = data.normalized_candidates_added.map(spec => ({\n  spec_name: spec.spec_name,\n  sample_values: spec.sample_values || [],\n  sources: spec.sources || []\n}));\n\nreturn [\n  {\n    json: {\n      mcat_id: data.mcat_id,\n      mcat_name: data.mcat_name,\n      candidate_specs: candidateSpecs\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        816,
+        544
+      ],
+      "id": "051f2f32-1386-4c50-94c0-9421905f4a11",
+      "name": "Code in JavaScript2"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking 'Execute workflow'": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Replace Me",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Seller Specs API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Replace Me": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Seller Specs API": {
+      "main": [
+        [
+          {
+            "node": "Seller Spec Link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Seller Spec Link": {
+      "main": [
+        [
+          {
+            "node": "Seller Specs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Seller Specs": {
+      "main": [
+        [
+          {
+            "node": "Current Specs",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Current Specs": {
+      "main": [
+        [
+          {
+            "node": "Custom Specs",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Buyer Seller Call specs",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Buyer Search Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Custom Specs": {
+      "main": [
+        [
+          {
+            "node": "Custom Spec Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Custom Spec Summary": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buyer Seller Call specs": {
+      "main": [
+        [
+          {
+            "node": "Buyer Seller Call Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buyer Seller Call Summary": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Buyer Search Data": {
+      "main": [
+        [
+          {
+            "node": "Buyer Search Data Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Candidate Specs": {
+      "main": [
+        [
+          {
+            "node": "AI Agent 1 - Normalization1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Wait1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent 1 - Normalization",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent 1 - Normalization": {
+      "main": [
+        [
+          {
+            "node": "Parse Normalization Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Normalization Output": {
+      "main": [
+        []
+      ]
+    },
+    "OpenAI Chat Model3": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent 3 - Option Generation",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent 3 - Option Generation": {
+      "main": [
+        [
+          {
+            "node": "Parse Agent 3 Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Agent 3 Output": {
+      "main": [
+        [
+          {
+            "node": "Combine Specs with Options",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Specs with Options": {
+      "main": [
+        [
+          {
+            "node": "Format Final Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Final Output": {
+      "main": [
+        [
+          {
+            "node": "Log Candidate Specs2",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log Candidate Specs3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buyer Search Data Summary": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet": {
+      "main": [
+        [
+          {
+            "node": "Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Build Candidate Specs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        []
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Log Seller Specs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait1": {
+      "main": [
+        [
+          {
+            "node": "Log Candidate Specs1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent 1 - Normalization1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent 1 - Normalization1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript2": {
+      "main": [
+        [
+          {
+            "node": "AI Agent 3 - Option Generation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "bf467dbf-c3eb-43b4-b7c4-8b7604635046",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "17519d3ef9735db55aeaaca554134cc04945a8942840756f95f4251d52adf708"
+  },
+  "id": "-Jf9oZS5Om7yodWLJ-qpV",
+  "tags": []
+}

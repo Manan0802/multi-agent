@@ -1,0 +1,17 @@
+__pycache__/
+*.log
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+ENV/
+.env
+.ipynb_checkpoints/
+*.txt
+*.json
+!Missing Spec Optimizer - Complete Flow v2.json
+!Option Audit Agent v1.json
+!Spec Sequencing Agent Final.json
